@@ -17,7 +17,6 @@ interface WeatherApiService {
 
 @JsonClass(generateAdapter = true)
 data class WeatherResponse(
-
     val coord: Coordinates,
     val weather: List<WeatherCondition>,
     val base: String,
