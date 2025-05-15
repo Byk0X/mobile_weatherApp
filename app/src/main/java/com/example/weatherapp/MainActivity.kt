@@ -108,20 +108,26 @@ class MainActivity : ComponentActivity() {
 fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     var weather by remember { mutableStateOf<WeatherResponse?>(null) }
     val unitSystem by viewModel.unitSystem
+    var forecast by remember {mutableStateOf<ForecastResponse?>(null)}
 
     LaunchedEffect(unitSystem) {
         viewModel.fetchWeather("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe", "pl") { result ->
             weather = result
         }
+
+        viewModel.fetchForecast("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe", "pl") { result ->
+            forecast = result
+        }
+
     }
-    WeatherScreenPager(weather, viewModel)
+    WeatherScreenPager(weather, viewModel, forecast)
 
 }
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
+fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel, forecastResponse: ForecastResponse?) {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("Podstawowe", "Dodatkowe", "Prognoza", "Ulubione", "Ustawienia")
@@ -165,7 +171,7 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherView
                 when (page) {
                     0 -> BasicWeatherFragment(weatherResponse, viewModel)
                     1 -> ExtraWeatherFragment(weatherResponse, viewModel)
-                    2 -> ForecastFragment(weatherResponse, viewModel)
+                    2 -> ForecastFragment(forecastResponse, viewModel)
                     3 -> Favourites()
                     4 -> Settings(viewModel)
                 }
@@ -375,21 +381,182 @@ fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
 
 @Composable
 fun ExtraWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
+
+    val unitSystem by viewModel.unitSystem
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ){
+        weatherResponse?.let { weather ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ){
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.secondaryContainer,
+                                            MaterialTheme.colorScheme.tertiaryContainer
+                                        )
+                                    )
+                                )
+                                .padding(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Wiatr: ${weather.wind.speed} ${unitSystem.speedLabel}, ${weather.wind.deg}°",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Wilgotność: ${weather.main.humidity}%",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
 
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Widoczność: ${weather.visibility / 1000.0} km",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
     }
 }
 
 @Composable
-fun ForecastFragment(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
+fun ForecastFragment(forecastResponse: ForecastResponse?, viewModel: WeatherViewModel) {
+
+    val unitSystem by viewModel.unitSystem
+
     Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = "Prognoza pogody",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-            Text("Prognoza")
+        if (forecastResponse == null) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(50.dp)
+                    .align(Alignment.CenterHorizontally)
+            )
+            Text(
+                text = "Ładowanie prognozy...",
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .align(Alignment.CenterHorizontally)
+            )
+        } else {
+            Text(
+                text = "${forecastResponse.city.name}, ${forecastResponse.city.country}",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
 
+            // Forecast list
+            LazyColumn {
+                items(forecastResponse.list) { forecastItem ->
+                    val dateFormatter = SimpleDateFormat("HH:mm, dd.MM", Locale("pl", "PL"))
+                    val date = Date(forecastItem.dt * 1000)
+                    val formattedDate = dateFormatter.format(date)
+                    val iconCode = forecastItem.weather.firstOrNull()?.icon
+                    val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
+
+                    // Forecast card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            //Left site
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = formattedDate,
+                                    fontWeight = FontWeight.Medium
+                                )
+
+                                // Weather description
+                                val description = forecastItem.weather.firstOrNull()?.description ?: ""
+                                Text(
+                                    text = description.replaceFirstChar {
+                                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                                    },
+                                    color = Color.Gray
+                                )
+                            }
+
+                            // Right site
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.End
+                            ) {
+                                // Temperature
+                                Text(
+                                    text = "${forecastItem.main.temp.toInt()}${unitSystem.tempLabel}",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                // Wind and humidity
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${forecastItem.main.humidity}%",
+                                        fontSize = 14.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${forecastItem.wind.speed} m/s",
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
     }
 }
 
