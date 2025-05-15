@@ -1,10 +1,8 @@
 package com.example.weatherapp
 
-import android.Manifest
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import androidx.annotation.RequiresPermission
 
 class NetworkChecker(private val context: Context) {
 
