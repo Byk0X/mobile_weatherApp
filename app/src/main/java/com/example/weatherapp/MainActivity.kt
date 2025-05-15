@@ -5,17 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -28,15 +28,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.weatherapp.ui.theme.WeatherAppTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import retrofit2.Retrofit
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -75,9 +76,9 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun WeatherScreenPager(weatherResponse: WeatherResponse?) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("Podstawowe", "Dodatkowe", "Prognoza")
+    val tabTitles = listOf("Podstawowe", "Dodatkowe", "Prognoza", "Ulubione", "Ustawienia")
 
     Column {
         CenterAlignedTopAppBar(
@@ -100,19 +101,33 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?) {
                             pagerState.animateScrollToPage(index)
                         }
                     },
-                    text = { Text(title) }
+                    text = {
+                        Text(
+                            text = title,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip)
+                    }
                 )
             }
         }
 
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            when (page) {
-                0 -> BasicWeatherFragment(weatherResponse)
-                1 -> ExtraWeatherFragment(weatherResponse)
-                2 -> ForecastFragment(weatherResponse)
+
+        Box(modifier = Modifier.weight(1f)) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    0 -> BasicWeatherFragment(weatherResponse)
+                    1 -> ExtraWeatherFragment(weatherResponse)
+                    2 -> ForecastFragment(weatherResponse)
+                    3 -> Favourites()
+                    4 -> Settings()
+                }
+            }
+
+            Column(modifier = Modifier.align(Alignment.BottomCenter)) {
+                NoInternetFooterChecker()
             }
         }
     }
@@ -137,7 +152,7 @@ fun BasicWeatherFragment(weatherResponse: WeatherResponse?) {
 @Composable
 fun ExtraWeatherFragment(weatherResponse: WeatherResponse?) {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("2")
+        Text("Dodatkowe")
 
     }
 }
@@ -146,7 +161,52 @@ fun ExtraWeatherFragment(weatherResponse: WeatherResponse?) {
 fun ForecastFragment(weatherResponse: WeatherResponse?) {
     Column(modifier = Modifier.padding(16.dp)) {
 
-            Text("3")
+            Text("Progrnoza")
 
+    }
+}
+
+@Composable
+fun Favourites() {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Ulubione")
+
+    }
+}
+
+@Composable
+fun Settings() {
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Ustawienia")
+
+    }
+}
+
+@Composable
+fun NoInternetFooterChecker() {
+    val context = LocalContext.current
+    var isConnected by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            isConnected = NetworkChecker(context).isConnected()
+            delay(3000) // co 3 sekundy
+        }
+    }
+
+    if (!isConnected) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Red)
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Brak połączenia z internetem",
+                color = Color.White
+            )
+        }
     }
 }
