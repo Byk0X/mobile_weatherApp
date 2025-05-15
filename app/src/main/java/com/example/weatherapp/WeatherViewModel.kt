@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.State
 
 class WeatherViewModel : ViewModel() {
 
@@ -15,12 +16,20 @@ class WeatherViewModel : ViewModel() {
 
     var isLoading by mutableStateOf(false)
 
-    fun fetchWeather(city: String, apiKey: String, onResult: (WeatherResponse?) -> Unit) {
+    private val _unitSystem = mutableStateOf(UnitSystem.Standard)
+    val unitSystem: State<UnitSystem> = _unitSystem
+
+    fun setUnitSystem(newUnit: UnitSystem) {
+        _unitSystem.value = newUnit
+
+    }
+
+    fun fetchWeather(city: String, units: String, apiKey: String, onResult: (WeatherResponse?) -> Unit) {
         isLoading = true
 
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.apiService.getWeather(city, apiKey)
+                val response = RetrofitClient.apiService.getWeather(city, units ,apiKey)
                 weatherResponse = response
                 onResult(response)
             } catch (e: Exception) {
