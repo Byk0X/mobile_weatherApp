@@ -51,7 +51,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
-    implementation(libs.converter.scalars)
     implementation(libs.converter.moshi)
     implementation(libs.moshi.kotlin)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
