@@ -16,20 +16,19 @@ class WeatherViewModel : ViewModel() {
 
     var isLoading by mutableStateOf(false)
 
-    private val _unitSystem = mutableStateOf(UnitSystem.Standard)
+    private val _unitSystem = mutableStateOf(UnitSystem.Metric)
     val unitSystem: State<UnitSystem> = _unitSystem
 
     fun setUnitSystem(newUnit: UnitSystem) {
         _unitSystem.value = newUnit
-
     }
 
-    fun fetchWeather(city: String, units: String, apiKey: String, onResult: (WeatherResponse?) -> Unit) {
+    fun fetchWeather(city: String, units: String, apiKey: String, lang: String, onResult: (WeatherResponse?) -> Unit) {
         isLoading = true
 
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.apiService.getWeather(city, units ,apiKey)
+                val response = RetrofitClient.apiService.getWeather(city, units ,apiKey, lang)
                 weatherResponse = response
                 onResult(response)
             } catch (e: Exception) {
