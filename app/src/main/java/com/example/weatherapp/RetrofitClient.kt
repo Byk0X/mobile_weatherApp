@@ -19,4 +19,13 @@ object RetrofitClient {
             .build()
             .create(WeatherApiService::class.java)
     }
+
+    val forecastApiService: ForecastApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(ForecastApiService::class.java)
+
+    }
 }
