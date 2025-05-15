@@ -69,8 +69,8 @@ data class SysData(
     val type: Int?,
     val id: Int?,
     val country: String,
-    val sunrise: Long,      // Czas wschodu słońca (unix timestamp)
-    val sunset: Long        // Czas zachodu słońca (unix timestamp)
+    val sunrise: Long,
+    val sunset: Long
 )
 
 @JsonClass(generateAdapter = true)
