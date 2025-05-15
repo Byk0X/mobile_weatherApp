@@ -8,14 +8,21 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -32,9 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.weatherapp.ui.theme.WeatherAppTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
@@ -62,20 +69,21 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     var weather by remember { mutableStateOf<WeatherResponse?>(null) }
+    val unitSystem by viewModel.unitSystem
 
-    LaunchedEffect(Unit) {
-        viewModel.fetchWeather("Lodz", "d81c46127e231b83bd487579f8f556fe") { result ->
+    LaunchedEffect(unitSystem) {
+        viewModel.fetchWeather("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe") { result ->
             weather = result
         }
     }
-    WeatherScreenPager(weather)
+    WeatherScreenPager(weather, viewModel)
 
 }
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherScreenPager(weatherResponse: WeatherResponse?) {
+fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("Podstawowe", "Dodatkowe", "Prognoza", "Ulubione", "Ustawienia")
@@ -111,7 +119,6 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?) {
             }
         }
 
-
         Box(modifier = Modifier.weight(1f)) {
             HorizontalPager(
                 state = pagerState,
@@ -122,7 +129,7 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?) {
                     1 -> ExtraWeatherFragment(weatherResponse)
                     2 -> ForecastFragment(weatherResponse)
                     3 -> Favourites()
-                    4 -> Settings()
+                    4 -> Settings(viewModel)
                 }
             }
 
@@ -161,7 +168,7 @@ fun ExtraWeatherFragment(weatherResponse: WeatherResponse?) {
 fun ForecastFragment(weatherResponse: WeatherResponse?) {
     Column(modifier = Modifier.padding(16.dp)) {
 
-            Text("Progrnoza")
+            Text("Prognoza")
 
     }
 }
@@ -175,11 +182,36 @@ fun Favourites() {
 }
 
 @Composable
-fun Settings() {
+fun Settings(viewModel: WeatherViewModel = viewModel()) {
+    val unitSystem by viewModel.unitSystem
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Ustawienia")
+    val options = UnitSystem.entries
 
+    Column(Modifier.selectableGroup()) {
+        options.forEach { option ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .selectable(
+                        selected = (option == unitSystem),
+                        onClick = { viewModel.setUnitSystem(option) },
+                        role = Role.RadioButton
+                    )
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = (option == unitSystem),
+                    onClick = { viewModel.setUnitSystem(option) }
+                )
+                Text(
+                    text = option.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
+        }
     }
 }
 
