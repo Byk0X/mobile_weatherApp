@@ -5,7 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,19 +16,43 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,15 +63,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.weatherapp.ui.theme.WeatherAppTheme
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.weatherapp.ui.theme.WeatherAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.math.roundToInt
+import coil3.compose.AsyncImage
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,7 +110,7 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     val unitSystem by viewModel.unitSystem
 
     LaunchedEffect(unitSystem) {
-        viewModel.fetchWeather("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe") { result ->
+        viewModel.fetchWeather("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe", "pl") { result ->
             weather = result
         }
     }
@@ -125,16 +163,16 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherView
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
-                    0 -> BasicWeatherFragment(weatherResponse)
-                    1 -> ExtraWeatherFragment(weatherResponse)
-                    2 -> ForecastFragment(weatherResponse)
+                    0 -> BasicWeatherFragment(weatherResponse, viewModel)
+                    1 -> ExtraWeatherFragment(weatherResponse, viewModel)
+                    2 -> ForecastFragment(weatherResponse, viewModel)
                     3 -> Favourites()
                     4 -> Settings(viewModel)
                 }
             }
 
             Column(modifier = Modifier.align(Alignment.BottomCenter)) {
-                NoInternetFooterChecker()
+                NoInternetFooterChecker(viewModel)
             }
         }
     }
@@ -142,30 +180,212 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherView
 
 
 @Composable
-fun BasicWeatherFragment(weatherResponse: WeatherResponse?) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        weatherResponse?.let {
-            Column {
-                Text("Miasto: ${it.name}")
-                Text("Temperatura: ${it.main.temp} °C")
-                Text("Opis: ${it.weather.firstOrNull()?.description ?: "brak"}")
-                Text("Opady: ${it.rain?.lastHour ?: 0.0} mm")
+fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
+
+    val unitSystem by viewModel.unitSystem
+    val iconCode = weatherResponse?.weather?.firstOrNull()?.icon
+    val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        weatherResponse?.let { weather ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // main panel with localisation and temperature and weather description
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primaryContainer,
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        )
+                                    )
+                                )
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LocationOn,
+                                            contentDescription = "Lokalizacja",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = weather.name,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "${weather.main.temp.roundToInt()}${unitSystem.tempLabel}",
+                                        style = MaterialTheme.typography.displayLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Text(
+                                        text = "Odczuwalna: ${weather.main.feelsLike.roundToInt()}${unitSystem.tempLabel}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+
+                                    Box(
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer.copy(
+                                                    alpha = 0.3f
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        AsyncImage(
+                                            model = iconUrl,
+                                            contentDescription = "Ikona pogody",
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = weather.weather.firstOrNull()?.description
+                                            ?: "brak danych",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                //second panel with time coords and preasure
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.secondaryContainer,
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                    )
+                                )
+                                .padding(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+
+                                val time = weather.dt
+                                val formattedTime = remember(time) {
+                                    val sdf = java.text.SimpleDateFormat("HH:mm:ss, dd MMM yyyy", Locale("pl", "PL"))
+                                    sdf.timeZone = java.util.TimeZone.getDefault()
+                                    sdf.format(java.util.Date(time * 1000L))
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Czas: $formattedTime",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Place,
+                                        contentDescription = "Współrzędne",
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Szer.: ${weather.coord.lat}, Dł.: ${weather.coord.lon}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Ciśnienie: ${weather.main.pressure} hPa",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+
             }
         }
+    }
+}
+
+@Composable
+fun ExtraWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ){
 
     }
 }
 
 @Composable
-fun ExtraWeatherFragment(weatherResponse: WeatherResponse?) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Dodatkowe")
-
-    }
-}
-
-@Composable
-fun ForecastFragment(weatherResponse: WeatherResponse?) {
+fun ForecastFragment(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
     Column(modifier = Modifier.padding(16.dp)) {
 
             Text("Prognoza")
@@ -182,7 +402,7 @@ fun Favourites() {
 }
 
 @Composable
-fun Settings(viewModel: WeatherViewModel = viewModel()) {
+fun Settings(viewModel: WeatherViewModel) {
     val unitSystem by viewModel.unitSystem
 
     val options = UnitSystem.entries
@@ -216,7 +436,7 @@ fun Settings(viewModel: WeatherViewModel = viewModel()) {
 }
 
 @Composable
-fun NoInternetFooterChecker() {
+fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
     val context = LocalContext.current
     var isConnected by remember { mutableStateOf(true) }
 
