@@ -10,6 +10,7 @@ interface WeatherApiService {
     @GET("weather")
     suspend fun getWeather(
         @Query("q") city: String,
+        @Query("units") units: String,
         @Query("appid") apiKey: String,
     ): WeatherResponse
 }
