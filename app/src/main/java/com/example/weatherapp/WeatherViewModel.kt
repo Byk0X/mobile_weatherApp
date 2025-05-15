@@ -14,6 +14,9 @@ class WeatherViewModel : ViewModel() {
     var weatherResponse by mutableStateOf<WeatherResponse?>(null)
         private set
 
+    var forecastResponse by mutableStateOf<ForecastResponse?>(null)
+        private set
+
     var isLoading by mutableStateOf(false)
 
     private val _unitSystem = mutableStateOf(UnitSystem.Metric)
@@ -34,6 +37,23 @@ class WeatherViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("WeatherVM", "Błąd przy pobieraniu pogody: ${e.message}")
                 onResult(null)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun fetchForecast(city: String, units: String, apiKey: String, lang: String, onResult: (ForecastResponse?) -> Unit){
+        isLoading = true
+
+        viewModelScope.launch{
+            try {
+                val response = RetrofitClient.forecastApiService.getForecast(city, units, apiKey, lang)
+                forecastResponse = response
+                onResult(response)
+            } catch (e: Exception) {
+            Log.e("WeatherVM", "Błąd przy pobieraniu prognozy: ${e.message}")
+            onResult(null)
             } finally {
                 isLoading = false
             }
