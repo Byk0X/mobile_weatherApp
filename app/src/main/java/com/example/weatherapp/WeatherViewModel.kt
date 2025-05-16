@@ -24,6 +24,14 @@ class WeatherViewModel : ViewModel() {
     private val _forecastResponse = MutableStateFlow<ForecastResponse?>(null)
     val forecastResponse: StateFlow<ForecastResponse?> = _forecastResponse
 
+    fun saveLastWeatherData(data: WeatherResponse) {
+        _weatherResponse.value = data
+    }
+
+    fun saveLastForecastData(data: ForecastResponse) {
+        _forecastResponse.value = data
+    }
+
     var isLoading by mutableStateOf(false)
 
     private val _unitSystem = mutableStateOf(UnitSystem.Metric)
@@ -100,6 +108,23 @@ class WeatherViewModel : ViewModel() {
         }
     }
 
+    fun loadForecastFromPreferences(context: Context): ForecastResponse? {
+        return try {
+            val prefs = context.getSharedPreferences("forecast_prefs", Context.MODE_PRIVATE)
+            val json = prefs.getString("last_forecast", null)
+            Log.d("prefs", "Raw forecast: $json")
+            if (json.isNullOrEmpty()) return null
+
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val adapter = moshi.adapter(ForecastResponse::class.java)
+            adapter.fromJson(json)
+
+        } catch (e: Exception) {
+            Log.e("WeatherVM", "Error loading forecast from preferences", e)
+            null
+        }
+    }
+
     fun saveLastWeatherData(context: Context, data: WeatherResponse) {
         _lastWeatherData.value = data
         saveWeatherToPreferences(context, data)
@@ -110,6 +135,14 @@ class WeatherViewModel : ViewModel() {
         if (weather != null) {
             _lastWeatherData.value = weather
             _weatherResponse.value = weather
+        }
+    }
+
+    fun loadLastForecastData(context: Context) {
+        val weather = loadForecastFromPreferences(context)
+        if (weather != null) {
+            _lastForecastData.value = weather
+            _forecastResponse.value = weather
         }
     }
 

@@ -115,7 +115,8 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
         ) { result ->
             if (result != null) {
                 viewModel.saveLastWeatherData(context, result)
-
+            } else {
+                viewModel.loadLastWeatherData(context)
             }
         }
 
@@ -127,6 +128,8 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
         ) { result ->
             if (result != null) {
                 viewModel.saveLastForecastData(context, result)
+            } else {
+                viewModel.loadLastForecastData(context)
             }
         }
     }
@@ -144,8 +147,8 @@ fun WeatherScreenPager(
 ) {
     val tabItems = listOf(
         TabItem.IconTab(Icons.Default.Home, "Podstawowe"),
-        TabItem.IconTab(Icons.Default.DateRange,"Prognoza"),
-        TabItem.IconTab(Icons.Default.Favorite,"Ulubione"),
+        TabItem.IconTab(Icons.Default.DateRange, "Prognoza"),
+        TabItem.IconTab(Icons.Default.Favorite, "Ulubione"),
         TabItem.IconTab(Icons.Rounded.Settings, "Ustawienia")
     )
 
@@ -198,15 +201,16 @@ fun WeatherScreenPager(
                             .fillMaxSize()
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ){
-                        item{
+                    ) {
+                        item {
                             BasicWeatherFragment(weatherResponse, viewModel)
                         }
-                        item{
+                        item {
                             ExtraWeatherFragment(weatherResponse, viewModel)
                         }
 
                     }
+
                     1 -> ForecastFragment(forecastResponse, viewModel)
                     2 -> Favourites()
                     3 -> Settings(viewModel)
@@ -219,7 +223,6 @@ fun WeatherScreenPager(
         }
     }
 }
-
 
 
 @Composable
@@ -655,11 +658,34 @@ fun Settings(viewModel: WeatherViewModel) {
 fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
     val context = LocalContext.current
     var isConnected by remember { mutableStateOf(true) }
+    var wasDisconnected by remember { mutableStateOf(false) }
+    val city by viewModel.currentCity
+    val unitSystem by viewModel.unitSystem
 
     LaunchedEffect(Unit) {
         while (true) {
-            isConnected = NetworkChecker(context).isConnected()
-            delay(3000) // co 3 sekundy
+            val currentConnectionState = NetworkChecker(context).isConnected()
+
+            if (currentConnectionState && !isConnected) {
+                viewModel.fetchWeather(
+                    city,
+                    units = unitSystem.apiValue,
+                    "d81c46127e231b83bd487579f8f556fe",
+                    "pl"
+                ) { _ -> }
+
+                viewModel.fetchForecast(
+                    city,
+                    units = unitSystem.apiValue,
+                    "d81c46127e231b83bd487579f8f556fe",
+                    "pl"
+                ) { _ -> }
+            }
+
+            wasDisconnected = !currentConnectionState
+            isConnected = currentConnectionState
+
+            delay(3000)
         }
     }
 
@@ -672,7 +698,8 @@ fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Brak połączenia z internetem",
+                text = "Brak połączenia z internetem. Dane mogą być nieaktualne i niepoprawne.",
+                textAlign = TextAlign.Center,
                 color = Color.White
             )
         }
