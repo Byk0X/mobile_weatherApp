@@ -26,6 +26,13 @@ class WeatherViewModel : ViewModel() {
         _unitSystem.value = newUnit
     }
 
+    private var _currentCity = mutableStateOf("Lodz")
+    val currentCity: State<String> = _currentCity
+
+    fun setCity(newCity: String) {
+        _currentCity.value = newCity
+    }
+
     fun fetchWeather(city: String, units: String, apiKey: String, lang: String, onResult: (WeatherResponse?) -> Unit) {
         isLoading = true
 
