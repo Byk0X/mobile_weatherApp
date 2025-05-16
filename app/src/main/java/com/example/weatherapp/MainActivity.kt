@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -28,31 +26,22 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,9 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -94,7 +81,7 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
-                ){
+                ) {
                     WeatherApplication()
                 }
             }
@@ -108,14 +95,26 @@ class MainActivity : ComponentActivity() {
 fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     var weather by remember { mutableStateOf<WeatherResponse?>(null) }
     val unitSystem by viewModel.unitSystem
-    var forecast by remember {mutableStateOf<ForecastResponse?>(null)}
+    var forecast by remember { mutableStateOf<ForecastResponse?>(null) }
+    val city by viewModel.currentCity
 
-    LaunchedEffect(unitSystem) {
-        viewModel.fetchWeather("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe", "pl") { result ->
+
+    LaunchedEffect(unitSystem, city) {
+        viewModel.fetchWeather(
+            city,
+            units = unitSystem.apiValue,
+            "d81c46127e231b83bd487579f8f556fe",
+            "pl"
+        ) { result ->
             weather = result
         }
 
-        viewModel.fetchForecast("Lodz", units = unitSystem.apiValue ,"d81c46127e231b83bd487579f8f556fe", "pl") { result ->
+        viewModel.fetchForecast(
+            city,
+            units = unitSystem.apiValue,
+            "d81c46127e231b83bd487579f8f556fe",
+            "pl"
+        ) { result ->
             forecast = result
         }
 
@@ -127,7 +126,11 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel, forecastResponse: ForecastResponse?) {
+fun WeatherScreenPager(
+    weatherResponse: WeatherResponse?,
+    viewModel: WeatherViewModel,
+    forecastResponse: ForecastResponse?
+) {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("Podstawowe", "Dodatkowe", "Prognoza", "Ulubione", "Ustawienia")
@@ -157,7 +160,8 @@ fun WeatherScreenPager(weatherResponse: WeatherResponse?, viewModel: WeatherView
                         Text(
                             text = title,
                             maxLines = 2,
-                            overflow = TextOverflow.Clip)
+                            overflow = TextOverflow.Clip
+                        )
                     }
                 )
             }
@@ -327,9 +331,12 @@ fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
 
                                 val time = weather.dt
                                 val formattedTime = remember(time) {
-                                    val sdf = java.text.SimpleDateFormat("HH:mm:ss, dd MMM yyyy", Locale("pl", "PL"))
+                                    val sdf = SimpleDateFormat(
+                                        "HH:mm:ss, dd MMM yyyy",
+                                        Locale("pl", "PL")
+                                    )
                                     sdf.timeZone = java.util.TimeZone.getDefault()
-                                    sdf.format(java.util.Date(time * 1000L))
+                                    sdf.format(Date(time * 1000L))
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -388,12 +395,12 @@ fun ExtraWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-    ){
+    ) {
         weatherResponse?.let { weather ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
-            ){
+            ) {
                 item {
                     Card(
                         modifier = Modifier
@@ -492,7 +499,7 @@ fun ForecastFragment(forecastResponse: ForecastResponse?, viewModel: WeatherView
                     val date = Date(forecastItem.dt * 1000)
                     val formattedDate = dateFormatter.format(date)
                     val iconCode = forecastItem.weather.firstOrNull()?.icon
-                    val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
+                    "https://openweathermap.org/img/wn/${iconCode}@2x.png"
 
                     // Forecast card
                     Card(
@@ -513,7 +520,8 @@ fun ForecastFragment(forecastResponse: ForecastResponse?, viewModel: WeatherView
                                 )
 
                                 // Weather description
-                                val description = forecastItem.weather.firstOrNull()?.description ?: ""
+                                val description =
+                                    forecastItem.weather.firstOrNull()?.description ?: ""
                                 Text(
                                     text = description.replaceFirstChar {
                                         if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
@@ -546,7 +554,7 @@ fun ForecastFragment(forecastResponse: ForecastResponse?, viewModel: WeatherView
 
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "${forecastItem.wind.speed} m/s",
+                                        text = "${forecastItem.wind.speed} ${unitSystem.speedLabel}",
                                         fontSize = 14.sp
                                     )
                                 }
@@ -571,36 +579,64 @@ fun Favourites() {
 @Composable
 fun Settings(viewModel: WeatherViewModel) {
     val unitSystem by viewModel.unitSystem
+    val currentCity by viewModel.currentCity
+
+    var cityInput by remember { mutableStateOf(currentCity) }
 
     val options = UnitSystem.entries
 
-    Column(Modifier.selectableGroup()) {
-        options.forEach { option ->
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .selectable(
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Wybierz jednostkę:", style = MaterialTheme.typography.titleMedium)
+
+        Column(Modifier.selectableGroup()) {
+            options.forEach { option ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .selectable(
+                            selected = (option == unitSystem),
+                            onClick = { viewModel.setUnitSystem(option) },
+                            role = Role.RadioButton
+                        )
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
                         selected = (option == unitSystem),
-                        onClick = { viewModel.setUnitSystem(option) },
-                        role = Role.RadioButton
+                        onClick = { viewModel.setUnitSystem(option) }
                     )
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = (option == unitSystem),
-                    onClick = { viewModel.setUnitSystem(option) }
-                )
-                Text(
-                    text = option.label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 16.dp)
-                )
+                    Text(
+                        text = option.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 16.dp)
+                    )
+                }
             }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("Aktualne miasto: $currentCity", style = MaterialTheme.typography.titleMedium)
+
+        OutlinedTextField(
+            value = cityInput,
+            onValueChange = { cityInput = it },
+            label = { Text("Wpisz nazwę miasta") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = { viewModel.setCity(cityInput) },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Zmień miasto")
         }
     }
 }
+
 
 @Composable
 fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
