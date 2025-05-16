@@ -26,8 +26,12 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,6 +75,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 import coil3.compose.AsyncImage
+import androidx.compose.runtime.collectAsState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,11 +98,13 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
-    var weather by remember { mutableStateOf<WeatherResponse?>(null) }
-    val unitSystem by viewModel.unitSystem
-    var forecast by remember { mutableStateOf<ForecastResponse?>(null) }
-    val city by viewModel.currentCity
 
+    val context = LocalContext.current
+
+    val weather by viewModel.weatherResponse.collectAsState()
+    val forecast by viewModel.forecastResponse.collectAsState()
+    val unitSystem by viewModel.unitSystem
+    val city by viewModel.currentCity
 
     LaunchedEffect(unitSystem, city) {
         viewModel.fetchWeather(
@@ -106,7 +113,10 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
             "d81c46127e231b83bd487579f8f556fe",
             "pl"
         ) { result ->
-            weather = result
+            if (result != null) {
+                viewModel.saveLastWeatherData(context, result)
+
+            }
         }
 
         viewModel.fetchForecast(
@@ -115,12 +125,13 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
             "d81c46127e231b83bd487579f8f556fe",
             "pl"
         ) { result ->
-            forecast = result
+            if (result != null) {
+                viewModel.saveLastForecastData(context, result)
+            }
         }
-
     }
-    WeatherScreenPager(weather, viewModel, forecast)
 
+    WeatherScreenPager(weather, viewModel, forecast)
 }
 
 
@@ -131,14 +142,21 @@ fun WeatherScreenPager(
     viewModel: WeatherViewModel,
     forecastResponse: ForecastResponse?
 ) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
+    val tabItems = listOf(
+        TabItem.IconTab(Icons.Default.Home, "Podstawowe"),
+        TabItem.IconTab(Icons.Default.DateRange,"Prognoza"),
+        TabItem.IconTab(Icons.Default.Favorite,"Ulubione"),
+        TabItem.IconTab(Icons.Rounded.Settings, "Ustawienia")
+    )
+
+
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { tabItems.size })
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("Podstawowe", "Dodatkowe", "Prognoza", "Ulubione", "Ustawienia")
 
     Column {
         CenterAlignedTopAppBar(
             title = {
-                Text(text = tabTitles[pagerState.currentPage])
+                Text(text = tabItems[pagerState.currentPage].label)
             },
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -148,7 +166,7 @@ fun WeatherScreenPager(
         TabRow(
             selectedTabIndex = pagerState.currentPage
         ) {
-            tabTitles.forEachIndexed { index, title ->
+            tabItems.forEachIndexed { index, tab ->
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = {
@@ -157,11 +175,13 @@ fun WeatherScreenPager(
                         }
                     },
                     text = {
-                        Text(
-                            text = title,
-                            maxLines = 2,
-                            overflow = TextOverflow.Clip
-                        )
+                        when (tab) {
+                            is TabItem.TextTab -> Text(tab.label)
+                            is TabItem.IconTab -> Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label
+                            )
+                        }
                     }
                 )
             }
@@ -173,11 +193,23 @@ fun WeatherScreenPager(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
-                    0 -> BasicWeatherFragment(weatherResponse, viewModel)
-                    1 -> ExtraWeatherFragment(weatherResponse, viewModel)
-                    2 -> ForecastFragment(forecastResponse, viewModel)
-                    3 -> Favourites()
-                    4 -> Settings(viewModel)
+                    0 -> LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ){
+                        item{
+                            BasicWeatherFragment(weatherResponse, viewModel)
+                        }
+                        item{
+                            ExtraWeatherFragment(weatherResponse, viewModel)
+                        }
+
+                    }
+                    1 -> ForecastFragment(forecastResponse, viewModel)
+                    2 -> Favourites()
+                    3 -> Settings(viewModel)
                 }
             }
 
@@ -189,6 +221,7 @@ fun WeatherScreenPager(
 }
 
 
+
 @Composable
 fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherViewModel) {
 
@@ -196,191 +229,181 @@ fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
     val iconCode = weatherResponse?.weather?.firstOrNull()?.icon
     val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        weatherResponse?.let { weather ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+
+    weatherResponse?.let { weather ->
+
+        // main panel with localisation and temperature and weather description
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        )
+                    )
+                    .padding(16.dp)
             ) {
-                // main panel with localisation and temperature and weather description
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        shape = RoundedCornerShape(16.dp)
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
                     ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Lokalizacja",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = weather.name,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "${weather.main.temp.roundToInt()}${unitSystem.tempLabel}",
+                            style = MaterialTheme.typography.displayLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            text = "Odczuwalna: ${weather.main.feelsLike.roundToInt()}${unitSystem.tempLabel}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .size(64.dp)
+                                .clip(CircleShape)
                                 .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            MaterialTheme.colorScheme.secondaryContainer
-                                        )
+                                    MaterialTheme.colorScheme.primaryContainer.copy(
+                                        alpha = 0.3f
                                     )
-                                )
-                                .padding(16.dp)
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.LocationOn,
-                                            contentDescription = "Lokalizacja",
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = weather.name,
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Text(
-                                        text = "${weather.main.temp.roundToInt()}${unitSystem.tempLabel}",
-                                        style = MaterialTheme.typography.displayLarge,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    Text(
-                                        text = "Odczuwalna: ${weather.main.feelsLike.roundToInt()}${unitSystem.tempLabel}",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(64.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                MaterialTheme.colorScheme.primaryContainer.copy(
-                                                    alpha = 0.3f
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AsyncImage(
-                                            model = iconUrl,
-                                            contentDescription = "Ikona pogody",
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = weather.weather.firstOrNull()?.description
-                                            ?: "brak danych",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
+                            AsyncImage(
+                                model = iconUrl,
+                                contentDescription = "Ikona pogody",
+                            )
                         }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = weather.weather.firstOrNull()?.description
+                                ?: "brak danych",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
+            }
+        }
 
-                //second panel with time coords and preasure
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.secondaryContainer,
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        )
-                                    )
-                                )
-                                .padding(16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.Center
-                            ) {
+        // Dodany odstęp między kartami
+        Spacer(modifier = Modifier.height(16.dp))
 
-                                val time = weather.dt
-                                val formattedTime = remember(time) {
-                                    val sdf = SimpleDateFormat(
-                                        "HH:mm:ss, dd MMM yyyy",
-                                        Locale("pl", "PL")
-                                    )
-                                    sdf.timeZone = java.util.TimeZone.getDefault()
-                                    sdf.format(Date(time * 1000L))
-                                }
+        //second panel with time coords and preasure
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                MaterialTheme.colorScheme.primaryContainer
+                            )
+                        )
+                    )
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center
+                ) {
 
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Czas: $formattedTime",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
+                    val time = weather.dt
+                    val formattedTime = remember(time) {
+                        val sdf = SimpleDateFormat(
+                            "HH:mm:ss, dd MMM yyyy",
+                            Locale("pl", "PL")
+                        )
+                        sdf.timeZone = java.util.TimeZone.getDefault()
+                        sdf.format(Date(time * 1000L))
+                    }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Place,
-                                        contentDescription = "Współrzędne",
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Szer.: ${weather.coord.lat}, Dł.: ${weather.coord.lon}",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Czas: $formattedTime",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Ciśnienie: ${weather.main.pressure} hPa",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = "Współrzędne",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Szer.: ${weather.coord.lat}, Dł.: ${weather.coord.lon}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Ciśnienie: ${weather.main.pressure} hPa",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                     }
                 }
-
-
             }
         }
     }
@@ -391,72 +414,62 @@ fun ExtraWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
 
     val unitSystem by viewModel.unitSystem
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        weatherResponse?.let { weather ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+
+    weatherResponse?.let { weather ->
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        )
+                    )
+                    .padding(16.dp)
             ) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        shape = RoundedCornerShape(16.dp)
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.secondaryContainer,
-                                            MaterialTheme.colorScheme.tertiaryContainer
-                                        )
-                                    )
-                                )
-                                .padding(16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "Wiatr: ${weather.wind.speed} ${unitSystem.speedLabel}, ${weather.wind.deg}°",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    Text(
-                                        text = "Wilgotność: ${weather.main.humidity}%",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = "Widoczność: ${weather.visibility / 1000.0} km",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
+                        Text(
+                            text = "Wiatr: ${weather.wind.speed} ${unitSystem.speedLabel}, ${weather.wind.deg}°",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = "Wilgotność: ${weather.main.humidity}%",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                     }
-                }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Widoczność: ${weather.visibility / 1000.0} km",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
             }
         }
+
     }
+
 }
 
 @Composable
