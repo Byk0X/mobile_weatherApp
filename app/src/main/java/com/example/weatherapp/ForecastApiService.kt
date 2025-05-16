@@ -34,7 +34,7 @@ data class ForecastEntry(
     val weather: List<WeatherConditionForecast>,
     val clouds: CloudsData,
     val wind: WindData,
-    val visibility: Int,
+    val visibility: Int? = null,
     val pop: Double,
     val rain: RainForecast? = null,
     val sys: ForecastSys,
