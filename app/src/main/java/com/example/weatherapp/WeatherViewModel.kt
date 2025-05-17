@@ -46,7 +46,7 @@ class WeatherViewModel : ViewModel() {
         _unitSystem.value = newUnit
     }
 
-    private var _currentCity = mutableStateOf("Lodz")
+    private var _currentCity = mutableStateOf("Warszawa")
     val currentCity: State<String> = _currentCity
 
     fun setCity(newCity: String) {
@@ -62,11 +62,30 @@ class WeatherViewModel : ViewModel() {
     fun saveRefreshInterval(context: Context, intervalMinutes: Int) {
         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
         prefs.edit { putInt("refresh_interval", intervalMinutes) }
+
+        schedulePeriodicWeatherUpdates(context)
     }
 
     fun loadRefreshInterval(context: Context): Int {
         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-        return prefs.getInt("refresh_interval", 60) // domyślnie 60 minut
+        return prefs.getInt("refresh_interval", 60) // default 60 minutes
+    }
+
+    fun schedulePeriodicWeatherUpdates(context: Context) {
+        val intervalMinutes = loadRefreshInterval(context)
+        val city = currentCity.value
+        val unitSystem = unitSystem.value.apiValue
+
+        WeatherUpdateWorker.schedulePeriodicWork(
+            context,
+            intervalMinutes,
+            city,
+            unitSystem
+        )
+    }
+
+    fun cancelPeriodicWeatherUpdates(context: Context) {
+        WeatherUpdateWorker.cancelWork(context)
     }
 
     fun saveWeatherToPreferences(context: Context, data: WeatherResponse) {

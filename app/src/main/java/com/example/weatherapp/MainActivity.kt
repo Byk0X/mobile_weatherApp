@@ -1,6 +1,7 @@
 package com.example.weatherapp
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -101,7 +102,7 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
 
     val context = LocalContext.current
 
-
+    viewModel.schedulePeriodicWeatherUpdates(context)
 
     val weather by viewModel.weatherResponse.collectAsState()
     val forecast by viewModel.forecastResponse.collectAsState()
@@ -684,6 +685,13 @@ fun Settings(viewModel: WeatherViewModel) {
             onClick = {
                 refreshInterval.toIntOrNull()?.let { interval ->
                     viewModel.saveRefreshInterval(context, interval)
+
+                    Toast.makeText(
+                        context,
+                        "Ustawiono odświeżanie co $interval minut",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
                 }
             },
             modifier = Modifier.align(Alignment.End)
