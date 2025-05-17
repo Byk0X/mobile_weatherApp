@@ -37,7 +37,7 @@ fun TabletLayout(
     viewModel: WeatherViewModel,
     forecastResponse: ForecastResponse?
 ) {
-    // Zredukowana liczba zakładek zgodnie z wymaganiami
+
     val tabItems = listOf(
         TabItem.IconTab(Icons.Default.Home, "Pogoda"),
         TabItem.IconTab(Icons.Default.Favorite, "Ulubione"),
@@ -87,7 +87,7 @@ fun TabletLayout(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
-                    // Pierwsza zakładka: Pogoda (aktualna i prognoza obok siebie)
+                    // First page: Current weather and forecast side by side
                     0 -> {
                         Row(
                             modifier = Modifier
@@ -95,7 +95,7 @@ fun TabletLayout(
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // Lewa strona: aktualna pogoda
+                            // Left side: current weather
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
@@ -114,7 +114,7 @@ fun TabletLayout(
                                 )
                             }
 
-                            // Prawa strona: prognoza
+                            // Right side: forecast
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -129,15 +129,14 @@ fun TabletLayout(
                         }
                     }
 
-                    // Druga zakładka: Ulubione
+
                     1 -> Favourites(viewModel)
 
-                    // Trzecia zakładka: Ustawienia
+
                     2 -> Settings(viewModel)
                 }
             }
 
-            // Informacja o braku połączenia zawsze na dole ekranu
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 NoInternetFooterChecker(viewModel)
             }
