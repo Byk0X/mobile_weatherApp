@@ -7,9 +7,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
@@ -40,6 +43,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -103,6 +107,7 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     val context = LocalContext.current
 
     viewModel.schedulePeriodicWeatherUpdates(context)
+    viewModel.loadFavoriteLocations(context)
 
     val weather by viewModel.weatherResponse.collectAsState()
     val forecast by viewModel.forecastResponse.collectAsState()
@@ -214,11 +219,10 @@ fun WeatherScreenPager(
                         item {
                             ExtraWeatherFragment(weatherResponse, viewModel)
                         }
-
                     }
 
                     1 -> ForecastFragment(forecastResponse, viewModel)
-                    2 -> Favourites()
+                    2 -> Favourites(viewModel)
                     3 -> Settings(viewModel)
                 }
             }
@@ -238,11 +242,8 @@ fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
     val iconCode = weatherResponse?.weather?.firstOrNull()?.icon
     val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
 
-
     weatherResponse?.let { weather ->
-
         // main panel with localisation and temperature and weather description
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -336,11 +337,9 @@ fun BasicWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
             }
         }
 
-        // Dodany odstęp między kartami
         Spacer(modifier = Modifier.height(16.dp))
 
         //second panel with time coords and preasure
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -423,9 +422,7 @@ fun ExtraWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
 
     val unitSystem by viewModel.unitSystem
 
-
     weatherResponse?.let { weather ->
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -476,9 +473,7 @@ fun ExtraWeatherFragment(weatherResponse: WeatherResponse?, viewModel: WeatherVi
                 }
             }
         }
-
     }
-
 }
 
 @Composable
@@ -591,11 +586,43 @@ fun ForecastFragment(forecastResponse: ForecastResponse?, viewModel: WeatherView
 }
 
 @Composable
-fun Favourites() {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Ulubione")
+fun Favourites(viewModel: WeatherViewModel) {
 
+    val context = LocalContext.current
+    val favoriteLocations by viewModel.favoriteLocations
+    val currentCity by viewModel.currentCity
+
+    //Text("Ulubione miasta:", style = MaterialTheme.typography.titleMedium)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 0.dp, bottom = 8.dp)
+    ) {
+        items(favoriteLocations) { city ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(8.dp),
+
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.setCity(city) }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(city, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { viewModel.removeFavoriteLocation(context, city) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Usuń z ulubionych")
+                    }
+                }
+            }
+        }
     }
+
 }
 
 @Composable
@@ -607,7 +634,7 @@ fun Settings(viewModel: WeatherViewModel) {
 
     val options = UnitSystem.entries
 
-    // Wczytaj i zapisz interwał
+    // load and store interval
     var refreshInterval by remember {
         mutableStateOf(viewModel.loadRefreshInterval(context).toString())
     }
@@ -655,15 +682,28 @@ fun Settings(viewModel: WeatherViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
-            onClick = {
-                viewModel.setCity(cityInput)
-                viewModel.fetchWeather(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
-                viewModel.fetchForecast(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
-            },
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Zmień miasto i odśwież")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End)
+        ){
+            Button(
+                onClick = { viewModel.addFavoriteLocation(context, currentCity) },
+
+            ) {
+                Text("Dodaj do ulubionych")
+            }
+
+            Button(
+                onClick = {
+                    viewModel.setCity(cityInput)
+                    viewModel.fetchWeather(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
+                    viewModel.fetchForecast(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
+                },
+
+            ) {
+                Text("Zmień miasto",
+                    textAlign = TextAlign.Center)
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -712,7 +752,6 @@ fun Settings(viewModel: WeatherViewModel) {
         }
     }
 }
-
 
 
 @Composable
