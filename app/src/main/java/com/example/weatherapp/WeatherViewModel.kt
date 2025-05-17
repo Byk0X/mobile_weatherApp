@@ -18,6 +18,11 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 class WeatherViewModel : ViewModel() {
 
 
+    fun initializeData(context: Context) {
+        loadLastWeatherData(context)
+        loadLastForecastData(context)
+    }
+
     private val _weatherResponse = MutableStateFlow<WeatherResponse?>(null)
     val weatherResponse: StateFlow<WeatherResponse?> = _weatherResponse
 
@@ -54,6 +59,15 @@ class WeatherViewModel : ViewModel() {
     private val _lastForecastData = mutableStateOf<ForecastResponse?>(null)
     val lastForecastData: State<ForecastResponse?> = _lastForecastData
 
+    fun saveRefreshInterval(context: Context, intervalMinutes: Int) {
+        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+        prefs.edit { putInt("refresh_interval", intervalMinutes) }
+    }
+
+    fun loadRefreshInterval(context: Context): Int {
+        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+        return prefs.getInt("refresh_interval", 60) // domyślnie 60 minut
+    }
 
     fun saveWeatherToPreferences(context: Context, data: WeatherResponse) {
         try {
@@ -135,6 +149,7 @@ class WeatherViewModel : ViewModel() {
         if (weather != null) {
             _lastWeatherData.value = weather
             _weatherResponse.value = weather
+            _currentCity.value =  weather.name
         }
     }
 
@@ -151,12 +166,13 @@ class WeatherViewModel : ViewModel() {
         saveForecastToPreferences(context, data)
     }
 
-    fun fetchWeather(city: String, units: String, apiKey: String, lang: String, onResult: (WeatherResponse?) -> Unit) {
+    fun fetchWeather(city: String, units: String, lang: String, onResult: (WeatherResponse?) -> Unit) {
         isLoading = true
 
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.apiService.getWeather(city, units ,apiKey, lang)
+                Log.d("WeatherVM", BuildConfig.WEATHER_API_KEY)
+                val response = RetrofitClient.apiService.getWeather(cityNameWithoutSpecialLetters(city), units, BuildConfig.WEATHER_API_KEY ,lang)
                 _weatherResponse.value = response
                 onResult(response)
             } catch (e: Exception) {
@@ -168,13 +184,15 @@ class WeatherViewModel : ViewModel() {
         }
     }
 
-    fun fetchForecast(city: String, units: String, apiKey: String, lang: String, onResult: (ForecastResponse?) -> Unit){
+    fun fetchForecast(city: String, units: String, lang: String, onResult: (ForecastResponse?) -> Unit){
         isLoading = true
 
         viewModelScope.launch{
             try {
-                val response = RetrofitClient.forecastApiService.getForecast(city, units, apiKey, lang)
+                Log.d("WeatherVM", BuildConfig.WEATHER_API_KEY)
+                val response = RetrofitClient.forecastApiService.getForecast(cityNameWithoutSpecialLetters(city), units, BuildConfig.WEATHER_API_KEY, lang)
                 _forecastResponse.value = response
+                Log.d("WeatherVM", BuildConfig.WEATHER_API_KEY)
                 onResult(response)
             } catch (e: Exception) {
                 Log.e("WeatherVM", "Błąd przy pobieraniu prognozy: ${e.message}")
