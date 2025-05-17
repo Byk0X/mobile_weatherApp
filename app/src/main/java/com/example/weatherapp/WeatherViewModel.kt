@@ -13,10 +13,10 @@ import com.squareup.moshi.Moshi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import androidx.core.content.edit
+import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 class WeatherViewModel : ViewModel() {
-
 
     fun initializeData(context: Context) {
         loadLastWeatherData(context)
@@ -29,16 +29,9 @@ class WeatherViewModel : ViewModel() {
     private val _forecastResponse = MutableStateFlow<ForecastResponse?>(null)
     val forecastResponse: StateFlow<ForecastResponse?> = _forecastResponse
 
-    fun saveLastWeatherData(data: WeatherResponse) {
-        _weatherResponse.value = data
-    }
-
-    fun saveLastForecastData(data: ForecastResponse) {
-        _forecastResponse.value = data
-    }
-
     var isLoading by mutableStateOf(false)
 
+    //default system is metric - after restart app sets metric
     private val _unitSystem = mutableStateOf(UnitSystem.Metric)
     val unitSystem: State<UnitSystem> = _unitSystem
 
@@ -46,6 +39,7 @@ class WeatherViewModel : ViewModel() {
         _unitSystem.value = newUnit
     }
 
+    //default localisation after installation
     private var _currentCity = mutableStateOf("Warszawa")
     val currentCity: State<String> = _currentCity
 
@@ -221,4 +215,49 @@ class WeatherViewModel : ViewModel() {
             }
         }
     }
+
+
+    //--------------favourite locations section------------------
+
+    private val _favoriteLocations = mutableStateOf<List<String>>(emptyList())
+    val favoriteLocations: State<List<String>> = _favoriteLocations
+
+    fun loadFavoriteLocations(context: Context) {
+        val prefs = context.getSharedPreferences("favorites_prefs", Context.MODE_PRIVATE)
+        val json = prefs.getString("favorites", null)
+        if (json.isNullOrEmpty()) {
+            _favoriteLocations.value = emptyList()
+        } else {
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val adapter = moshi.adapter<List<String>>(Types.newParameterizedType(List::class.java, String::class.java))
+            _favoriteLocations.value = adapter.fromJson(json) ?: emptyList()
+        }
+    }
+
+    fun saveFavoriteLocations(context: Context) {
+        val prefs = context.getSharedPreferences("favorites_prefs", Context.MODE_PRIVATE)
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val adapter = moshi.adapter<List<String>>(Types.newParameterizedType(List::class.java, String::class.java))
+        val json = adapter.toJson(_favoriteLocations.value)
+        prefs.edit().putString("favorites", json).apply()
+    }
+
+    fun addFavoriteLocation(context: Context, city: String) {
+        if (!_favoriteLocations.value.contains(city)) {
+            _favoriteLocations.value = _favoriteLocations.value + city
+            saveFavoriteLocations(context)
+        }
+    }
+
+    fun removeFavoriteLocation(context: Context, city: String) {
+        if (_favoriteLocations.value.contains(city)) {
+            _favoriteLocations.value = _favoriteLocations.value - city
+            saveFavoriteLocations(context)
+        }
+    }
+
+
+    //-----------------------------------------------------------
+
+
 }
