@@ -101,16 +101,22 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
 
     val context = LocalContext.current
 
+
+
     val weather by viewModel.weatherResponse.collectAsState()
     val forecast by viewModel.forecastResponse.collectAsState()
     val unitSystem by viewModel.unitSystem
     val city by viewModel.currentCity
 
+
+    LaunchedEffect(Unit) {
+        viewModel.initializeData(context)
+    }
+
     LaunchedEffect(unitSystem, city) {
         viewModel.fetchWeather(
             city,
             units = unitSystem.apiValue,
-            "d81c46127e231b83bd487579f8f556fe",
             "pl"
         ) { result ->
             if (result != null) {
@@ -123,7 +129,6 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
         viewModel.fetchForecast(
             city,
             units = unitSystem.apiValue,
-            "d81c46127e231b83bd487579f8f556fe",
             "pl"
         ) { result ->
             if (result != null) {
@@ -594,12 +599,17 @@ fun Favourites() {
 
 @Composable
 fun Settings(viewModel: WeatherViewModel) {
+    val context = LocalContext.current
     val unitSystem by viewModel.unitSystem
     val currentCity by viewModel.currentCity
-
     var cityInput by remember { mutableStateOf(currentCity) }
 
     val options = UnitSystem.entries
+
+    // Wczytaj i zapisz interwał
+    var refreshInterval by remember {
+        mutableStateOf(viewModel.loadRefreshInterval(context).toString())
+    }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text("Wybierz jednostkę:", style = MaterialTheme.typography.titleMedium)
@@ -645,13 +655,56 @@ fun Settings(viewModel: WeatherViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { viewModel.setCity(cityInput) },
+            onClick = {
+                viewModel.setCity(cityInput)
+                viewModel.fetchWeather(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
+                viewModel.fetchForecast(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
+            },
             modifier = Modifier.align(Alignment.End)
         ) {
-            Text("Zmień miasto")
+            Text("Zmień miasto i odśwież")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("Czas odświeżania (minuty):", style = MaterialTheme.typography.titleMedium)
+
+        OutlinedTextField(
+            value = refreshInterval,
+            onValueChange = {
+                refreshInterval = it.filter { c -> c.isDigit() }
+            },
+            label = { Text("Np. 60") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                refreshInterval.toIntOrNull()?.let { interval ->
+                    viewModel.saveRefreshInterval(context, interval)
+                }
+            },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Zapisz interwał")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                viewModel.fetchWeather(viewModel.currentCity.value, viewModel.unitSystem.value.apiValue, "pl") {}
+                viewModel.fetchForecast(viewModel.currentCity.value, viewModel.unitSystem.value.apiValue, "pl") {}
+            },
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text("Odśwież teraz")
         }
     }
 }
+
 
 
 @Composable
@@ -670,7 +723,6 @@ fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
                 viewModel.fetchWeather(
                     city,
                     units = unitSystem.apiValue,
-                    "d81c46127e231b83bd487579f8f556fe",
                     "pl"
                 ) { _ -> }
 
@@ -678,7 +730,6 @@ fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
                     city,
                     units = unitSystem.apiValue,
                     "d81c46127e231b83bd487579f8f556fe",
-                    "pl"
                 ) { _ -> }
             }
 
