@@ -1,5 +1,6 @@
 package com.example.weatherapp
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,6 @@ fun PhoneLayout(
         TabItem.IconTab(Icons.Default.Favorite, "Ulubione"),
         TabItem.IconTab(Icons.Rounded.Settings, "Ustawienia")
     )
-
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { tabItems.size })
     val coroutineScope = rememberCoroutineScope()

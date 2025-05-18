@@ -39,7 +39,7 @@ class WeatherUpdateWorker(
             // Cancel all previous tasks
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
 
-            // Minimalna częstotliwość to 15 minut
+
             val actualIntervalMinutes = maxOf(15, intervalMinutes)
 
 
