@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.material3.window.size.class1.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
