@@ -1,8 +1,6 @@
 package com.example.weatherapp
 
 import android.app.Activity
-import android.content.Context
-import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -68,9 +65,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -91,30 +86,33 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     }
 
     LaunchedEffect(unitSystem, city) {
-        viewModel.fetchWeather(
-            city,
-            units = unitSystem.apiValue,
-            "pl"
-        ) { result ->
-            if (result != null) {
-                viewModel.saveLastWeatherData(context, result)
-            } else {
-                viewModel.loadLastWeatherData(context)
-            }
-        }
+//        val isConnected = NetworkChecker(context).isConnected()
 
-        viewModel.fetchForecast(
-            city,
-            units = unitSystem.apiValue,
-            "pl"
-        ) { result ->
-            if (result != null) {
-                viewModel.saveLastForecastData(context, result)
-            } else {
-                viewModel.loadLastForecastData(context)
+        if (city !in viewModel.favoriteLocations.value) {
+            viewModel.fetchWeather(city, units = unitSystem.apiValue, lang = "pl") { result ->
+
+                //Toast.makeText(context,"JEST ŁĄCZE", Toast.LENGTH_SHORT).show()
+                if (result != null) {
+                    viewModel.saveLastWeatherData(context, result)
+                } else {
+                    viewModel.loadLastWeatherData(context)
+                }
             }
+
+            viewModel.fetchForecast(city, units = unitSystem.apiValue, lang = "pl") { result ->
+                if (result != null) {
+                    viewModel.saveLastForecastData(context, result)
+                } else {
+                    viewModel.loadLastForecastData(context)
+                }
+            }
+        } else if (city in viewModel.favoriteLocations.value) {
+            //Toast.makeText(context,"NIE MA ŁĄCZa", Toast.LENGTH_SHORT).show()
+            viewModel.loadWeatherFromFile(context, city)
+            viewModel.loadForecastFromFile(context, city)
         }
     }
+
 
     val activity = context as? Activity
     val windowSizeClass = activity?.let { calculateWindowSizeClass(it) }
@@ -132,18 +130,6 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
         PhoneLayout(weather, viewModel, forecast)
     }
 }
-
-
-fun isTablet(context: Context): Boolean {
-    val displayMetrics = context.resources.displayMetrics
-    val widthInches = displayMetrics.widthPixels / displayMetrics.xdpi
-    val heightInches = displayMetrics.heightPixels / displayMetrics.ydpi
-    val diagonalInches = sqrt(widthInches.toDouble().pow(2.0) + heightInches.toDouble().pow(2.0))
-
-    return diagonalInches >= 7.0
-}
-
-
 
 
 @Composable
@@ -523,12 +509,14 @@ fun Favourites(viewModel: WeatherViewModel) {
                     .padding(8.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 shape = RoundedCornerShape(8.dp),
-
-                ) {
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { viewModel.setCity(city) }
+                        .clickable {
+//                            Toast.makeText(context, city, Toast.LENGTH_SHORT).show()
+                            viewModel.setCity(city)
+                        }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -540,8 +528,8 @@ fun Favourites(viewModel: WeatherViewModel) {
             }
         }
     }
-
 }
+
 
 @Composable
 fun Settings(viewModel: WeatherViewModel) {
@@ -610,7 +598,23 @@ fun Settings(viewModel: WeatherViewModel) {
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End)
         ){
             Button(
-                onClick = { viewModel.addFavoriteLocation(context, currentCity) },
+                onClick = {
+                    viewModel.addFavoriteLocation(context, cityInput)
+
+                    viewModel.fetchWeather(cityInput, viewModel.unitSystem.value.apiValue, "pl") { weather ->
+                        viewModel.saveWeatherToFile(context, cityInput, weather)
+                    }
+
+                    viewModel.fetchForecast(cityInput, viewModel.unitSystem.value.apiValue, "pl") { forecast ->
+                        viewModel.saveForecastToFile(context, cityInput, forecast)
+                    }
+
+                    Toast.makeText(
+                        context,
+                        "$cityInput dodano do ulubionych i zapisano dane do pliku",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             ) {
                 Text("Dodaj do ulubionych")
             }
@@ -693,13 +697,25 @@ fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
                     city,
                     units = unitSystem.apiValue,
                     "pl"
-                ) { result -> }
+                ) { result ->
+                    if (result != null) {
+                        viewModel.saveLastWeatherData(context, result)
+                    } else {
+                        viewModel.loadLastWeatherData(context)
+                    }
+                }
 
                 viewModel.fetchForecast(
                     city,
                     units = unitSystem.apiValue,
                     "d81c46127e231b83bd487579f8f556fe",
-                ) { _ -> }
+                ) { result ->
+                    if (result != null) {
+                        viewModel.saveLastForecastData(context, result)
+                    } else {
+                        viewModel.loadLastForecastData(context)
+                    }
+                }
             }
 
             wasDisconnected = !currentConnectionState

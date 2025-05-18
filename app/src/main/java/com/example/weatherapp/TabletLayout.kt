@@ -130,11 +130,7 @@ fun TabletLayout(
                             }
                         }
                     }
-
-
                     1 -> Favourites(viewModel)
-
-
                     2 -> Settings(viewModel)
                 }
             }

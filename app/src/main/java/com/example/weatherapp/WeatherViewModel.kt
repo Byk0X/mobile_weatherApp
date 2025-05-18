@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import androidx.core.content.edit
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.File
 
 class WeatherViewModel : ViewModel() {
 
@@ -250,12 +251,99 @@ class WeatherViewModel : ViewModel() {
         }
     }
 
+//    fun saveFavouritesForecastsToFiles(context: Context, forecasts: Map<String, ForecastResponse>) {
+//        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+//        val adapter = moshi.adapter(ForecastResponse::class.java)
+//
+//        for ((city, forecast) in forecasts) {
+//            try {
+//                val json = adapter.toJson(forecast)
+//                val fileName = "forecast_${city.lowercase().replace(" ", "_")}.json"
+//                context.openFileOutput(fileName, Context.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+//                Log.d("WeatherVM", "Saved forecast for $city to $fileName")
+//            } catch (e: Exception) {
+//                Log.e("WeatherVM", "Error saving forecast for $city", e)
+//            }
+//        }
+//    }
+
+    fun loadForecastFromFile(context: Context, city: String) {
+        val fileName = "forecast_${city.lowercase().replace(" ", "_")}.json"
+        val file = File(context.filesDir, fileName)
+
+        if (!file.exists()) {
+            Log.w("WeatherVM", "Brak pliku z prognoza dla miasta: $city")
+            return
+        }
+
+        try {
+            val json = file.readText()
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val adapter = moshi.adapter(ForecastResponse::class.java)
+            val weather = adapter.fromJson(json)
+
+            if (weather != null) {
+                _forecastResponse.value = weather
+                _lastForecastData.value = weather
+            } else {
+                Log.w("WeatherVM", "Nie udało się sparsować danych pogodowych dla $city")
+            }
+
+        } catch (e: Exception) {
+            Log.e("WeatherVM", "Błąd przy wczytywaniu prognozy z pliku dla $city", e)
+        }
+    }
+
+
+    fun saveWeatherToFile(context: Context, city: String, weather: WeatherResponse?) {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val file = File(context.filesDir, "weather_${city.lowercase()}.json")
+        val json = moshi.adapter(WeatherResponse::class.java).toJson(weather)
+        file.writeText(json)
+    }
+
+    fun saveForecastToFile(context: Context, city: String, forecast: ForecastResponse?) {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val file = File(context.filesDir, "forecast_${city.lowercase()}.json")
+        val json = moshi.adapter(ForecastResponse::class.java).toJson(forecast)
+        file.writeText(json)
+    }
+
+    fun loadWeatherFromFile(context: Context, city: String) {
+        val fileName = "weather_${city.lowercase().replace(" ", "_")}.json"
+        val file = File(context.filesDir, fileName)
+
+        if (!file.exists()) {
+            Log.w("WeatherVM", "Brak pliku z pogodą dla miasta: $city")
+            return
+        }
+
+        try {
+            val json = file.readText()
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val adapter = moshi.adapter(WeatherResponse::class.java)
+            val weather = adapter.fromJson(json)
+
+            if (weather != null) {
+                _weatherResponse.value = weather
+                _lastWeatherData.value = weather
+                _currentCity.value = weather.name
+            } else {
+                Log.w("WeatherVM", "Nie udało się sparsować danych pogodowych dla $city")
+            }
+
+        } catch (e: Exception) {
+            Log.e("WeatherVM", "Błąd przy wczytywaniu pogody z pliku dla $city", e)
+        }
+    }
+
     fun removeFavoriteLocation(context: Context, city: String) {
         if (_favoriteLocations.value.contains(city)) {
             _favoriteLocations.value = _favoriteLocations.value - city
             saveFavoriteLocations(context)
         }
     }
+
 
 
     //-----------------------------------------------------------
