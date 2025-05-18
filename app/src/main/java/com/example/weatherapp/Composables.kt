@@ -1,5 +1,8 @@
 package com.example.weatherapp
 
+import android.app.Activity
+import android.content.Context
+import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,10 +20,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
@@ -35,6 +40,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,11 +68,14 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
+
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
-
     val context = LocalContext.current
 
     viewModel.schedulePeriodicWeatherUpdates(context)
@@ -74,7 +85,6 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     val forecast by viewModel.forecastResponse.collectAsState()
     val unitSystem by viewModel.unitSystem
     val city by viewModel.currentCity
-
 
     LaunchedEffect(Unit) {
         viewModel.initializeData(context)
@@ -106,15 +116,31 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
         }
     }
 
-    val configuration = LocalConfiguration.current
-    val screenWidthDp = configuration.screenWidthDp
+    val activity = context as? Activity
+    val windowSizeClass = activity?.let { calculateWindowSizeClass(it) }
 
-    if (screenWidthDp >= 600) {
+
+    val isTablet = isTablet(context)
+
+    val useTabletLayout = isTablet &&
+            (windowSizeClass?.widthSizeClass == WindowWidthSizeClass.Expanded ||
+                    windowSizeClass?.widthSizeClass == WindowWidthSizeClass.Medium)
+
+    if (useTabletLayout) {
         TabletLayout(weather, viewModel, forecast)
     } else {
         PhoneLayout(weather, viewModel, forecast)
     }
+}
 
+
+fun isTablet(context: Context): Boolean {
+    val displayMetrics = context.resources.displayMetrics
+    val widthInches = displayMetrics.widthPixels / displayMetrics.xdpi
+    val heightInches = displayMetrics.heightPixels / displayMetrics.ydpi
+    val diagonalInches = sqrt(widthInches.toDouble().pow(2.0) + heightInches.toDouble().pow(2.0))
+
+    return diagonalInches >= 7.0
 }
 
 
@@ -486,8 +512,6 @@ fun Favourites(viewModel: WeatherViewModel) {
     val favoriteLocations by viewModel.favoriteLocations
     val currentCity by viewModel.currentCity
 
-    //Text("Ulubione miasta:", style = MaterialTheme.typography.titleMedium)
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 0.dp, bottom = 8.dp)
@@ -533,7 +557,12 @@ fun Settings(viewModel: WeatherViewModel) {
         mutableStateOf(viewModel.loadRefreshInterval(context).toString())
     }
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
         Text("Wybierz jednostkę:", style = MaterialTheme.typography.titleMedium)
 
         Column(Modifier.selectableGroup()) {
@@ -582,8 +611,7 @@ fun Settings(viewModel: WeatherViewModel) {
         ){
             Button(
                 onClick = { viewModel.addFavoriteLocation(context, currentCity) },
-
-                ) {
+            ) {
                 Text("Dodaj do ulubionych")
             }
 
@@ -593,8 +621,7 @@ fun Settings(viewModel: WeatherViewModel) {
                     viewModel.fetchWeather(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
                     viewModel.fetchForecast(cityInput, viewModel.unitSystem.value.apiValue, "pl") {}
                 },
-
-                ) {
+            ) {
                 Text("Zmień miasto",
                     textAlign = TextAlign.Center)
             }
@@ -625,7 +652,6 @@ fun Settings(viewModel: WeatherViewModel) {
                         "Ustawiono odświeżanie co $interval minut",
                         Toast.LENGTH_SHORT
                     ).show()
-
                 }
             },
             modifier = Modifier.align(Alignment.End)
@@ -644,6 +670,8 @@ fun Settings(viewModel: WeatherViewModel) {
         ) {
             Text("Odśwież teraz")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -665,7 +693,7 @@ fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
                     city,
                     units = unitSystem.apiValue,
                     "pl"
-                ) { _ -> }
+                ) { result -> }
 
                 viewModel.fetchForecast(
                     city,
