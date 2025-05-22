@@ -640,16 +640,30 @@ fun Settings(viewModel: WeatherViewModel) {
             onValueChange = {
                 refreshInterval = it.filter { c -> c.isDigit() }
             },
-            label = { Text("Np. 60") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text("Np. 60 (min. 15)") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = refreshInterval.toIntOrNull()?.let { it < 15 } == true
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
             onClick = {
-                refreshInterval.toIntOrNull()?.let { interval ->
+                val interval = refreshInterval.toIntOrNull()
+                if (interval == null) {
+                    Toast.makeText(context, "Podaj poprawną liczbę minut", Toast.LENGTH_SHORT).show()
+                } else if (interval < 15) {
+                    Toast.makeText(context, "Minimalny interwał to 15 minut (ograniczenie Androida)", Toast.LENGTH_LONG).show()
+                } else {
                     viewModel.saveRefreshInterval(context, interval)
+
+
+                    WeatherUpdateWorker.schedulePeriodicWork(
+                        context = context,
+                        intervalMinutes = interval,
+                        city = viewModel.currentCity.value,
+                        unitSystem = viewModel.unitSystem.value.apiValue
+                    )
 
                     Toast.makeText(
                         context,

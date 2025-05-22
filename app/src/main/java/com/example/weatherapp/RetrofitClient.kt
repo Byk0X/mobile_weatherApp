@@ -1,8 +1,8 @@
 package com.example.weatherapp
 
 import com.squareup.moshi.Moshi
-import retrofit2.Retrofit
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 
 object RetrofitClient {
