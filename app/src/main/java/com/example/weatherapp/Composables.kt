@@ -42,6 +42,7 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -84,6 +85,13 @@ fun WeatherApplication(viewModel: WeatherViewModel = viewModel()) {
     LaunchedEffect(Unit) {
         viewModel.initializeData(context)
     }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.cancelPeriodicWeatherUpdates(context)
+        }
+    }
+
 
     LaunchedEffect(unitSystem, city) {
 //        val isConnected = NetworkChecker(context).isConnected()
@@ -652,8 +660,6 @@ fun Settings(viewModel: WeatherViewModel) {
                 val interval = refreshInterval.toIntOrNull()
                 if (interval == null) {
                     Toast.makeText(context, "Podaj poprawną liczbę minut", Toast.LENGTH_SHORT).show()
-                } else if (interval < 15) {
-                    Toast.makeText(context, "Minimalny interwał to 15 minut (ograniczenie Androida)", Toast.LENGTH_LONG).show()
                 } else {
                     viewModel.saveRefreshInterval(context, interval)
 
@@ -722,12 +728,13 @@ fun NoInternetFooterChecker(viewModel: WeatherViewModel) {
                 viewModel.fetchForecast(
                     city,
                     units = unitSystem.apiValue,
-                    "d81c46127e231b83bd487579f8f556fe",
+                    BuildConfig.WEATHER_API_KEY,
                 ) { result ->
                     if (result != null) {
                         viewModel.saveLastForecastData(context, result)
                     } else {
                         viewModel.loadLastForecastData(context)
+
                     }
                 }
             }

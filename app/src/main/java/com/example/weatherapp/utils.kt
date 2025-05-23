@@ -32,4 +32,3 @@ fun isTablet(context: Context): Boolean {
 
     return diagonalInches >= 7.0
 }
-
