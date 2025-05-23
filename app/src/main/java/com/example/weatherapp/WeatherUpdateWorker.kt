@@ -1,6 +1,7 @@
 package com.example.weatherapp
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -9,6 +10,10 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class WeatherUpdateWorker(
@@ -24,7 +29,21 @@ class WeatherUpdateWorker(
         viewModel.fetchWeather(city, unitSystem, "pl") {}
         viewModel.fetchForecast(city, unitSystem, "pl") {}
 
+        logRefreshToFile(applicationContext)
+
         return Result.success()
+    }
+
+    private fun logRefreshToFile(context: Context) {
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        val logEntry = "Odświeżono: $timestamp\n"
+
+        try {
+            val file = File(context.filesDir, "weather_log.txt")
+            file.appendText(logEntry)
+        } catch (e: Exception) {
+            Log.e("WeatherUpdateWorker", "Błąd przy zapisie logu: ${e.message}")
+        }
     }
 
     companion object {
@@ -36,24 +55,19 @@ class WeatherUpdateWorker(
             city: String,
             unitSystem: String
         ) {
-            // Cancel all previous tasks
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
 
-
             val actualIntervalMinutes = maxOf(15, intervalMinutes)
-
 
             val inputData = workDataOf(
                 "city" to city,
                 "unit_system" to unitSystem
             )
 
-            // constraint: need network connection
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-            // create new task
             val updateRequest = PeriodicWorkRequestBuilder<WeatherUpdateWorker>(
                 actualIntervalMinutes.toLong(), TimeUnit.MINUTES
             )
@@ -61,7 +75,6 @@ class WeatherUpdateWorker(
                 .setInputData(inputData)
                 .build()
 
-            // schedule task
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
                 ExistingPeriodicWorkPolicy.REPLACE,

@@ -340,6 +340,11 @@ class WeatherViewModel : ViewModel() {
         if (_favoriteLocations.value.contains(city)) {
             _favoriteLocations.value = _favoriteLocations.value - city
             saveFavoriteLocations(context)
+
+            val fileForecast = File(context.filesDir, "forecast_${city.lowercase()}.json")
+            val fileWeather = File(context.filesDir, "weather_${city.lowercase()}.json")
+            fileForecast.delete()
+            fileWeather.delete()
         }
     }
 
